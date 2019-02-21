@@ -1,0 +1,452 @@
+\documentclass[12pt]{report}      
+\usepackage{} 
+\usepackage{amsthm}
+\usepackage{mathrsfs}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\newtheorem{theorem}{Theorem}[chapter]
+\newtheorem{lemma}{Lemma}[section]
+\newtheorem{corollary}[lemma]{Corollary}
+\newtheorem{example}[lemma]{Example}
+\newtheorem{definition}{Definition}[chapter]
+\newtheorem{proposition}{Proposition}[chapter]
+\newtheorem{remark}[lemma]{Remarque}
+\newtheorem{assumption}{Assumption}[chapter]
+\usepackage{boxedminipage2e}
+\usepackage[framemethod=TikZ]{mdframed}
+\newcounter{theo}[section]
+\renewcommand{\thetheo}{\arabic{section}.\arabic{theo}}
+\newenvironment{theo}[2][]{%
+    \refstepcounter{theo}
+\newcommand*{\defeq}{\mathrel{\vcenter{\baselineskip0.5ex \lineskiplimit0pt
+                     \hbox{\scriptsize.}\hbox{\scriptsize.}}}%
+                     =} 
+    % Code for box design goes here.
+ 
+\begin{mdframed}[]\relax}{%
+\end{mdframed}}
+\ifstrempty{#1}%
+% if condition (without title)
+{\mdfsetup{%
+    frametitle={%
+        \tikz[baseline=(current bounding box.east),outer sep=0pt]
+        \node[anchor=east,rectangle,fill=black!20]
+        {\strut Theorem~\thetheo};}
+    }%
+% else condition (with title)
+}{\mdfsetup{%
+    frametitle={%
+        \tikz[baseline=(current bounding box.east),outer sep=0pt]
+        \node[anchor=east,rectangle,fill=black!20]
+        {\strut Theorem~\thetheo:~#1};}%
+    }%
+}%
+% Both conditions
+\mdfsetup{%
+    innertopmargin=10pt,linecolor=black!20,%
+    linewidth=4pt,topline=true,%
+    frametitleaboveskip=\dimexpr-\ht\strutbox\relax%
+}
+
+\usepackage{amsfonts}
+\usepackage{mathtools} 
+\usepackage{enumitem} 
+\usepackage{framed,tikz}
+\usepackage[linesnumbered,ruled]{algorithm2e}
+\definecolor{fond}{gray}{0.91} 
+\newenvironment{cadrecode}{ 
+	\def\FrameCommand{{\color[HTML]{888888}\vrule width 			3pt}\colorbox{fond}} 
+	\MakeFramed {\advance\hsize-\width \FrameRestore}}%
+{\endMakeFramed}
+\usepackage[a4paper,top=1.5cm,bottom=1.5cm,left=1.5cm,right=1.5cm,marginparwidth=1.75cm]{geometry}
+\newcommand{\E}{\mathrm{E}}
+
+\newcommand{\Var}{\mathrm{Var}}
+
+\newcommand{\Cov}{\mathrm{Cov}}
+\renewcommand{\baselinestretch}{1.5}
+\usepackage{empheq}
+\DeclareMathOperator*\argmin{arg\,min}
+\DeclareMathOperator*\argmax{arg\,max}
+\DeclareMathOperator\prox{Prox}
+% Command "alignedbox{}{}" for a box within an align environment
+% Source: http://www.latex-community.org/forum/viewtopic.php?f=46&t=8144
+\newlength\dlf  % Define a new measure, dlf
+\newcommand\alignedbox[2]{
+% Argument #1 = before & if there were no box (lhs)
+% Argument #2 = after & if there were no box (rhs)
+&  % Alignment sign of the line
+{
+\settowidth\dlf{$\displaystyle #1$}  
+    % The width of \dlf is the width of the lhs, with a displaystyle font
+\addtolength\dlf{\fboxsep+\fboxrule}  
+    % Add to it the distance to the box, and the width of the line of the box
+\hspace{-\dlf}  
+    % Move everything dlf units to the left, so that & #1 #2 is aligned under #1 & #2
+\boxed{#1 #2}
+    % Put a box around lhs and rhs
+}
+}
+ 
+\begin{document}
+
+\title{SVRG, L-Katyusha and Optimality}
+
+\author{Badr-Eddine ABDALLAOUI}
+
+\maketitle
+
+
+\newpage
+
+
+
+\tableofcontents
+
+\chapter{Introduction and Problem Setting}
+In this short report we will consider the following optimization problem:
+
+
+\begin{equation} \label{pb1}
+\boxed{\min_{x\in \mathbb{R}^d} f(x)=\frac{1}{n}\sum_{i=1}^nf_i(x)}
+\end{equation}
+
+Where :
+\begin{itemize}
+    \item $n,d \in\mathbb{N}^*$
+    \item $f_i :\mathbb{R}^d\longrightarrow\mathbb{R}$ are differentiable, convex and $\beta$-smooth for some $\beta>0$
+    \item $F$ is $\alpha$-strongly convex for some $\alpha>0$
+\end{itemize}
+
+
+
+We will discuss in detail two versions of the SGD : SVRG which is a variance reduced version of the SGD, and L-Katyusha which is a loopless (i.e without the inner loop), accelerated version of SVRG. For each algorithm, we conduct a convergence analysis and assess the oracle complexity. We conclude by discussing the optimality and showing that L-Katyusha is optimal in some sense that we will define. 
+
+\chapter{SVRG}
+\section{Introduction to variance reduced techniques}
+While the diminishing stepsize SGD is guaranteed to converge in expectation, the convergence rate is of order $\mathcal{O}(\frac{1}{s})$, and hence one may wonder if there are some other ways to improve this rate. 
+Variance reduction technique is a novel approach that enhances the convergence rate of the SGD. Recall that for the basic SGD, the variance of the gradient was partially responsible of the failure of the convergence guarantee. In this context, variance reduction aims to get rid of the uniform bound on the variance of the noisy gradient by defining a less severe strategy : at each iteration, instead of imposing a completely new stochastic direction :
+
+$$D\gets \nabla f_i(x)$$
+we rather follow a less severe approach by keeping a fixed point $x_s$, setting $\Tilde{x}_0=s$ and then calculating the updates $\Tilde{x}_1,...,\Tilde{x}_m$ following the iteration:
+
+
+
+\begin{enumerate} 
+    \item  $D_k\gets \nabla f_i(\Tilde{x}_k)-\nabla f_i(x_s)+\nabla f(x_s)$ 
+    \hfill\refstepcounter{equation}(\theequation)
+
+    \item $\Tilde{x}_{k+1}\gets \Tilde{x}_k + D_k$
+\end{enumerate}
+
+
+
+
+Where $m$ is called the update frequency.
+
+After the $m$ steps we set a new value for $x_{s+1}$ as a function of $\{\Tilde{x}_1,...,\Tilde{x}_k\}$  and repeat the same $m$ updates, we say then that we have done one epoch. The whole process is repeated $T$ times and hence we get one inner loop and one outer loop.
+
+This new estimate of the gradient $D_k$, besides its unbiasedenss, is expected to have a lower variance (look at Bach slides!) that the basic direction $D$ \cite{allen2017katyusha}.
+
+The direction 2.1 has many variants and has been designed in various forms, forming what can be called as variance reduced SGD methods. In this context, the first pioneering work was done in \cite{schmidt2017minimizing}, where a new algorithm : Stochastic Averaged Gradient (SAG) was studied. This algorithm enhances the convergence rate from sublinear rate $\mathcal{O}(\frac{1}{s})$ to linear rate $\mathcal{O}(\gamma^s)$ for some $\gamma<1$. \\
+\\Later on, many versions and improvements were done, including the following SVRG \cite{johnson2013accelerating}, SAGA \cite{defazio2014saga}, FINITO \cite{defazio2014finito}.
+The iteration discussed above formally concerns SVRG.
+It is worth mentioning, that while the above methods are described as variance reduced in literature, not all of them have a provable reduced variance in comparison with basic SGD. We can see "variance reduced" as a generic name rather than a systematic method. \\
+\\In the following we will be discussing the SVRG in more details. We choose SVRG over other variants due do its relatively simple convergence analysis as well as an enhancement of some other previous variance reduced methods, such as SAG and SAGA.
+
+
+
+\section{SVRG Algorithm}
+The SVRG relies on Iteration 2.1, in which the point $x_s$ is updated every iteration based on the updates $\{\Tilde{x}_1,...,\Tilde{x}_k\}$. The point $x_s$ can be updated using one of the three options : 
+\begin{enumerate}
+    \item Option I : we choose the last update $x_s=\Tilde{x}_k\}$
+    \item Option II : we randomly sample $t\in\{1,...,m\}$, and set $x_s=\Tilde{x}_t\}$
+    \item Option III: we choose an average of the updates : $x_s=\frac{1}{m}\sum\limits_{i=1}^m \Tilde{x}_t$ 
+\end{enumerate}
+
+We will see as options can be different for each instance of the outer loop as the three options provide an equivalent analysis of one iteration of the outer loop. Algorithm \ref{SVRG} describe the pseudo-code of the SVRG with different options.
+\begin{algorithm}\label{SVRG}
+    \SetKwInOut{Input}{Input}
+    \SetKwInOut{Output}{Output}
+    \Input{ $\eta>0$, $x_0\in\mathbb{R}^d$, update frequency $m\geq 1$}
+    %\Output{$\gcd(a,b)$}
+    $x=x_0$\;
+    \For{$s=1,2,...,T$}{
+            \State 
+            $x=x_{s-1}$
+            
+            $\mu=\frac{1}{n}\sum_{i=1}^n\nabla f_i(x)$
+            
+            $\Tilde{x}_0=x$
+            
+            \For{$t=1,2,...,m$}{
+            Sample uniformly $i_{t}\in\{1,...,n\}$
+            
+            $\Tilde{x}_t=\Tilde{x}_{t-1}-\eta(\nabla f_{i_t}(\Tilde{x}_{t-1})-\nabla f_{i_t}({x})+\mu)$
+            
+            \EndFor}
+                
+  
+            Option I : $x_s=\Tilde{x}_m$
+            
+            Option II :  Sample uniformly $t\in\{1,...,m\}$,  $x_s=\Tilde{x}_t$
+            
+            Option III : $x_s=\frac{1}{m}\sum\limits_{i=1}^m \Tilde{x}_t$
+            
+            \EndFor}
+    \caption{SVRG}
+\end{algorithm}
+
+Now we state the theorem that proves the convergence of the SVRG.
+
+\begin{theo}
+LLet us consider applying SVRG to solving Problem \ref{pb1}.
+Let $x^*=\argmin_{x\in\mathbb{R}^d} f(x)$.
+Let also $m$ be sufficiently large such that the following holds:
+\begin{equation}
+    \gamma=\frac{1}{\alpha\eta(1-2\beta\eta)m}+\frac{2\eta\beta}{1-2\beta\eta}<1
+\end{equation}   
+Then,
+\begin{equation}
+    \E[f(X_s)-f(x^*)]\leq \gamma^s(f(x_0)-f(x^*))
+\end{equation}
+
+
+\end{theo}
+\begin{proof}
+See next section
+\end{proof}
+\section{Convergence analysis}
+
+In this section we will prove Theorem 2.1 under the choice of options I and II. The proof of the option I is adapted from  the original paper describing the SVRG \cite{johnson2013accelerating}, option II is adapted from \cite{bubeck2015convex}. Proving option III is more technical and uses dissipativity theory. For the complete proof we refer the reader to \cite{hu2018dissipativity}.\\
+\\We begin by a useful lemma:
+\begin{lemma}\label{lemma1}
+We have for any $x\in\mathbb{R}^d$:
+$$\frac{1}{n}\sum_{i=1}^n\|\nabla f_i(x)-\nabla f_i(x^*)\|^2\leq 2\beta(f(x)-f(x^*))$$
+\end{lemma}
+
+\begin{proof}
+Let 
+$$g_i(x)=f_i(x)-f_i(x^*)-\nabla f_i(x^*)^\top(x-x^*)$$
+By the convexity of $f_i$, we see easily that $g_i$ achieves its minimum at $x^*$.\\
+\\Hence, 
+\begin{equation}\label{ineq1}
+0=g_i(x^*)\leq \min_{\delta\in\mathbb{R}} g_i\left(x-\delta\nabla g_i(x)\right)
+\end{equation}
+Yet, $g_i\left(x-\eta\nabla g_i(x)\right)=f_i(x-\eta\nabla g_i(x))-f_i(x^*)-\nabla f_i(x^*)^\top(x-\eta\nabla g_i(x)-x^*)$\\
+
+Now using the $\beta$-smoothness of $f_i$, we have:
+$$f_i\left(x-\eta\nabla g_i(x)\right)\leq f_i(x) -\eta\nabla f_i(x)^\top\nabla g_i(x)+\frac{\beta}{2}\eta^2\|\nabla g_i(x)\|^2$$
+And by using  
+$\nabla g_i(x)=\nabla f_i(x)-\nabla f_i(x^*) $, we get
+
+$$g_i\left(x-\eta\nabla g_i(x)\right)\leq g_i(x)-\eta\|\nabla g_i(x) \|^2+\frac{\beta\eta^2}{2}\|\nabla g_i(x)\|^2 $$
+Now minimizing the right hand side of the last inequality over $\eta\in\mathbb{R}$, we get:
+$$ \min_{\delta\in\mathbb{R}} g_i\left(x-\delta\nabla g_i(x)\right)=g_i(x)-\frac{1}{2\beta}\|\nabla g_i(x)\|^2$$
+We conclude by using Inequality \ref{ineq1} and summing over $i$:
+$$\frac{1}{n}\sum_{i=1}^n\|\nabla f_i(x)-\nabla f_i(x^*)\|^2\leq 2\beta(f(x)-f(x^*))$$
+\end{proof}
+
+\begin{proof}
+
+Let us consider a fixed time step $s$ of the outer loop: $X=X_{s-1}$, $\mu=\nabla f(X)=\frac{1}{n}\sum_{i=1}^n\nabla f_i(X)$
+\newline
+Consider : $v_t=\nabla f_{I_t}(\Tilde{X}_{t-1})-\nabla f_{I_t}(X)+\mu$
+\newline
+Now we have the following :
+$$\E[\|v_t\|^2|\Tilde{X}_{t-1}]\overset{(a)}{\leq} 2 \E[\|\nabla f_{I_t}(\Tilde{X}_{t-1})-\nabla f_{I_t}(x^*)|\Tilde{X}_{t-1}]+2\E[\|\nabla f_{I_t}(X)-\nabla f_{I_t}(x^*)-\nabla f(X)\|^2|\Tilde{X}_{t-1}]$$
+$$\overset{(b)}{\leq} 2 \E[\|\nabla f_{I_t}(\Tilde{X}_{t-1})-\nabla f_{I_t}(x^*)\|^2|\Tilde{X}_{t-1}]+2\E[\|\nabla f_{I_t}(X)-\nabla f_{I_t}(x^*)\|^2|\Tilde{X}_{t-1}]$$
+$$\overset{(c)}{\leq} 4\beta f(\Tilde{X}_{t-1})-2f(x^*)+f(X) $$
+
+Where \begin{itemize}
+    \item (a) follows from : for all $x$ and $y$, $(x+y)^2\leq 2(x^2+y^2)$ 
+    \item (b) follows from : for all random variables $Z$ and $Y$, $\E[\|Y-E[Y|Z]\|^2|Z]\leq \E\left[\|Y\|^2|Z\right]$
+    \item (c) follows from Lemma \ref{lemma1} as $\Tilde{X}_{t-1}$ and $I_t$ are independent.
+    
+\end{itemize} 
+Since $\Tilde{X}_{t}=\Tilde{X}_{t-1}-\eta v_t$, we have
+$$\|\Tilde{X}_{t}-x^*\|^2= \|\Tilde{X}_{t-1}-x^*\|^2-2\eta(\Tilde{X}_{t-1}-x^*)^\top \E[v_t|\Tilde{X}_{t-1}]+\eta^2\E[\|v_t\|^2|\Tilde{X}_{t-1}]$$
+$$\E[\|\Tilde{X}_{t}-x^*\|^2|\Tilde{X}_{t-1}]=\E[\|\Tilde{X}_{t-1}-x^*\|^2|\Tilde{X}_{t-1}]-2\eta(\Tilde{X}_{t-1}-x^*)^\top\E[v_t|\Tilde{X}_{t-1}]+\eta^2\E[\|v_t\|^2|\Tilde{X}_{t-1}]$$
+$$\leq \|\Tilde{X}_{t-1}-x^*\|^2-2\eta(\Tilde{X}_{t-1}-x^*)^\top\nabla f(\Tilde{X}_{t-1})+4\beta\eta^2\left(f(\Tilde{X}_{t-1})-2f(x^*)+f(X)\right) $$
+$$\leq \|\Tilde{X}_{t-1}-x^*\|^2-2\eta\left( f(\Tilde{X}_{t-1})-f(x^*)\right)+4\beta \eta^2 \left( f(\Tilde{X}_{t-1})-2f(x^*)+f(X)\right) $$
+$$= \|\Tilde{X}_{t-1}-x^*\|^2-2\eta(1-2\eta\beta)\left(f(\Tilde{X}_{t-1})-f(x^*)\right)+4\beta\eta^2\left(f(X)-f(x^*)\right)$$
+
+Hence, we have :
+$$\E[\|\Tilde{X}_{t}-x^*\|^2|\Tilde{X}_{t-1}]+2\eta(1-2\eta\beta)\left(f(\Tilde{X}_{t-1})-f(x^*)\right)\leq \|\Tilde{X}_{t-1}-x^*\|^2 +4\beta\eta^2\left(f(X)-f(x^*)\right)$$
+
+Taking the expectation of both sides and applying the tower property we get:
+$$\E[\|\Tilde{X}_{t}-x^*\|^2]+2\eta(1-2\eta\beta)\left(\E[f(\Tilde{X}_{t-1})]-f(x^*)\right)\leq \E[\|\Tilde{X}_{t-1}-x^*\|^2] +4\beta\eta^2\left(\E[f(X)]-f(x^*)\right)$$
+After summing over $t$ between $1$ and $m$ we obtain:
+$$\E[\|\Tilde{X}_m-x^* \|^2]+2\eta(1-2\eta\beta)\left(\E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]-f(x^*)\right) \leq \E[\|\Tilde{X}_0-x^* \|^2]+4\beta m \eta^2(\E[f(X)]-f(x_0))$$
+Hence,
+
+\begin{equation}\label{eqsvrg}
+2\eta(1-2\eta\beta)\left(\E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]-f(x^*)\right) \leq \E[\|\Tilde{X}_0-x^* \|^2]+4\beta m \eta^2(\E[f(X)]-f(x_0))
+\end{equation}
+
+note that $\Tilde{X}_0=X$, and by using $\alpha$-strong convexity of $f$, we get:
+$$f(x^*)-f(X)\leq \underbrace{\nabla f(x^*)}_{=0}{}^ \top(x^*-X)-\frac{\alpha}{2}\|X-x^*\|^2 $$
+Hence,
+
+\begin{equation}
+    2\eta(1-2\eta\beta)\left(\E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]-f(x^*)\right) \leq (\frac{2}{\alpha}+4\beta m \eta^2)(\E[f(X)]-f(x_0))
+\end{equation}
+
+
+
+\begin{equation}
+   \E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]-f(x^*) \leq \underbrace{\left(\frac{1}{\alpha\eta(1-2\beta\eta)m}+\frac{2\beta\eta}{1-2\beta\eta}\right)}_{\gamma}(\E[f(X)]-f(x_0))
+\end{equation}
+
+
+Now for each option we have the following :
+\begin{itemize}
+    \item  \underline{Option I} : $X_s=\sum\limits_{t=1}^m \Tilde{X}_{t-1}$
+    Using the convexity of $f$, we have :
+    $$f(X_s)\leq \sum\limits_{t=1}^m f(\Tilde{X_{t-1}})$$
+    Hence 
+    $$\E[f(X_s)]\leq \E\left[\sum\limits_{t=1}^m f(\Tilde{X}_{t-1})\right]$$
+    
+    \item \underline{Option II}
+    $$\E[f(X_s)]=\E\left[\E[f(X_s)|\Tilde{X}_0,...\Tilde{X}_{m-1}]\right]=\E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]    $$
+    \item \underline{Option III}
+    $$\E[f(X_s)]=\E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]    $$
+
+\end{itemize}
+
+We can conclude that regardless of the chosen option, we will  have:
+$$   \E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]-f(x^*) \leq \gamma(\E[f(X)]-f(x_0))  $$
+
+
+Hence, Inequality (\ref{eqsvrg}) yields : 
+$$\E[\|\Tilde{X}_m-x^* \|^2]+2\eta(1-2\eta\beta)m\E[f(X_s)-f(x^*)] \leq \E[\|\Tilde{X}_0-x^* \|^2]+4\beta m \eta^2\E[f(X) ]$$
+$$=E[\|X-x^*\|^2]+4\beta m\eta^2 \E[f(X)-f(x^*)]$$
+$$\leq \frac{2}{\gamma} \E[f(X)-f(x^*)]+4\beta m \eta^2\E[f(X)-f(x^*)]$$
+$$=2\left(\frac{1}{\gamma}+2\beta m \eta^2\right)\E[f(X)-f(x^*)]$$
+
+Now the above analysis concerns the inner loop at some fixed instance $s$ of the outer loop, and recall that $X=X_{s-1}$
+
+Hence,
+
+$$\E[\left(f({X}_s)-f(x^*)\right) \leq \gamma\E[f({X}_{s-1})-f(x^*)]$$
+
+Finally we get:
+
+$$\E[\left(f({X}_s)-f(x^*)\right)]
+\leq \gamma^s \left(f({x}_{0})-f(x^*)\right)$$
+\end{proof}
+
+
+\section{Oracle complexity}
+
+\begin{corollary}
+
+
+Let us consider our problem setting \ref{pb1}.
+
+We apply SVRG with the following parameters:
+$m=\frac{20\beta}{\alpha}$,  $\eta=\frac{1}{10\beta}$
+
+Then, the oracle complexity is:
+$$ \mathcal{C}(\mathcal{A},n,\epsilon)\sim \left(n+\kappa \right)\log\left(\frac{1}{\epsilon}\right)$$
+Where $\mathcal{A}$ is SVRG with the chosen parameters.
+\end{corollary}
+
+\begin{proof}
+We have:
+$$\gamma=\frac{1}{\alpha\eta(1-2\beta\eta)m}+\frac{2\eta\beta}{1-2\beta\eta}=\frac{2}{\frac{\alpha}{10\beta}(1-1\frac{1}{5})m}+\frac{1}{4}=\frac{7}{8}<1$$
+
+
+Now if we want : $$\E[\left(f({X}_s)-f(x^*)\right)]<\epsilon $$
+It is enough to have : 
+$$\gamma^s \left(f({x}_{0})-f(x^*)\right)\approx \epsilon$$
+Hence, $$s \approx \frac{\log(\frac{1}{\epsilon})}{\log(\frac{1}{\gamma})} \approx {\log\left(\frac{1}{\epsilon}\right)}$$
+
+Where we dropped the term $\left(f({x}_{0})-f(x^*)\right)$  following the conventions discussed in Section ??.
+
+Recall that $s$ is the number of instances of the outer loop. Let us now come back to the algorithm and assess how many oracle calls de we make at each iteration. First, we make $n$ oracle calls for computing $\mu$, then we have two oracle calls in every iteration of the inner loop. Hence we have in total $n+2m$ oracle calls per outer iteration.
+Hence the total number of calls is approximately :
+$$(n+40\kappa) {\log\left(\frac{1}{\epsilon}\right)}$$
+Now we conclude that :
+
+$$ \mathcal{C}(\mathcal{A},n,\epsilon)\sim \left(n+\kappa \right)\log\left(\frac{1}{\epsilon}\right)$$
+
+
+\end{proof}
+
+\chapter{L-Katyusha}
+
+\section{Introduction}
+
+One compelling idea is th
+\subsection{About acceleration techniques for GD}
+
+\subsection{Acceleration in the SGD world}
+Acceleration can deteriorate SGD... Paper's failure...
+Catalyst... we will skip it to discuss its more sophisticated ... Katyusha. However, the whole katyusha paper deals with the composite case strongly-convex....
+L-katyusha shows   ....
+loopless 
+easy for convergence analysis.
+
+What is more in Katyusha not in the previous versions?
+\section{Algorithm and convergence analysis}
+\begin{algorithm}
+    \SetKwInOut{Input}{Input}
+    \SetKwInOut{Output}{Output}
+    \Input{ $\theta_1,\theta_2\geq0$, probability $p\in(0,1]$, 
+    initialize $y_0=w_0=z_0\in\mathbb{R}^d$, stepsize $\eta=\frac{\theta_2}{(1+\theta_2)\theta_1}$}
+    %\Output{$\gcd(a,b)$}
+    \For{$s=0,1,2,...,T$}{
+            \State 
+            $x_k=\theta_1 z^k+\theta_2 w^k+(1-\theta_1-\theta_2)y^k$
+            
+            Sample uniformly $i_{s}\in\{1,...,n\}$
+            
+            $v_k=\nabla f_{i_s}(x_k)-\nabla f_{i_s}(w_k)+\nabla f(w_k)$
+            
+            $z_{k+1}=\frac{\kappa}{\kappa+\eta}\left(\frac{\eta}{\kappa} x_k+z_k-\frac{\eta}{\beta}v^k\right)$
+            
+            $y_{k+1}=x_k+\theta_1(z_{k+1}-z_k)$
+            
+            $w_{k+1}=\left\{\begin{array}{ll}
+            y_k \mathrm{\ with\ probability\ \ } p\\
+            w_k \mathrm{\ with\  probability\ \ } 1-p
+            \end{array}\right.$
+            \EndFor}
+    \caption{L-Katyusha}
+\end{algorithm}
+
+\newpage
+\begin{theo}
+LLet us consider our problem setting...., we apply L-Katyusha with the following parameters:
+$p=\frac{1}{n}$,  $\theta_1=\min\left\{\sqrt{\frac{2n}{3\kappa}},\frac{1}{2}\right\} $, $\theta_2=\frac{1}{2}$, $\eta=\frac{\theta_2}{(1+\theta_2)\theta_1} $.
+
+Then, the oracle complexity is:
+$$ \mathcal{C}(\mathcal{A},n,\epsilon)\sim \left(n+\sqrt{\kappa n}\right)\log\left(\frac{1}{\epsilon}\right)$$
+Where $\mathcal{A}$ is the L-Katyusha with the chosen parameters.
+\end{theo}
+
+
+\begin{proof}
+The proof is detailed in the next section
+\end{proof}
+
+\section{Proof of Theorem 2.1}
+
+
+\section{Discussion and oracle complexity}
+
+
+\chapter{About Optimality}
+\section{Definition}
+
+{{Optimality does not mean that for every function L-Katyusha has the lowest complexity. This is completely wrong as we can easity find a coutnerexample.....}}
+\textbf{Optimality means that for the class of problems, no algorithm can do better....}
+
+In fact, in general in mathematical optimization, tendence is to design problem on a class of problems to design algorihm for general enough assumptions. In contrast, as we add assumptions and have more knowlege about the structure of the fucntion, one can come up with faster and better algorithms that eventually has an even lower oracl complexity that the ...
+\section{L-katyusha is optimal}
+
+\bibliography{reference}{}
+\bibliographystyle{abbrv}
+
+\end{document}
