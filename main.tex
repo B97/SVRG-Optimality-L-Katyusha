@@ -64,7 +64,7 @@
 \newcommand{\Var}{\mathrm{Var}}
 
 \newcommand{\Cov}{\mathrm{Cov}}
-\renewcommand{\baselinestretch}{1.5}
+\renewcommand{\baselinestretch}{1.4}
 \usepackage{empheq}
 \DeclareMathOperator*\argmin{arg\,min}
 \DeclareMathOperator*\argmax{arg\,max}
@@ -104,7 +104,7 @@
 \tableofcontents
 
 \chapter{Introduction and Problem Setting}
-In this short report we will consider the following optimization problem:
+In this short report we consider the following optimization problem:
 
 
 \begin{equation} \label{pb1}
@@ -124,16 +124,15 @@ We will discuss in detail two versions of the SGD : SVRG which is a variance red
 
 \chapter{SVRG}
 \section{Introduction to variance reduced techniques}
-While the diminishing stepsize SGD is guaranteed to converge in expectation, the convergence rate is of order $\mathcal{O}(\frac{1}{s})$, and hence one may wonder if there are some other ways to improve this rate. 
-Variance reduction technique is a novel approach that enhances the convergence rate of the SGD. Recall that for the basic SGD, the variance of the gradient was partially responsible of the failure of the convergence guarantee. In this context, variance reduction aims to get rid of the uniform bound on the variance of the noisy gradient by defining a less severe strategy : at each iteration, instead of imposing a completely new stochastic direction :
-
-$$D\gets \nabla f_i(x)$$
-we rather follow a less severe approach by keeping a fixed point $x_s$, setting $\Tilde{x}_0=s$ and then calculating the updates $\Tilde{x}_1,...,\Tilde{x}_m$ following the iteration:
+While the diminishing stepsize SGD is guaranteed to converge in expectation, the convergence rate is of order $\mathcal{O}(\frac{1}{s})$,  where $s$ is the number of iterations, and hence one may wonder if there are some other ways to improve this rate without deteriorating the oracle complexity.\\
+\\Variance reduction technique is a novel approach that enhances the convergence rate of the SGD. Recall that for the basic SGD, the variance of the gradient was partially responsible of the failure of the convergence guarantee. In this context, variance reduction aims to get rid of the uniform bound on the variance of the noisy gradient by defining a less severe strategy : at each iteration, instead of imposing a completely new stochastic direction :
+$$D\gets \nabla f_i(x)\ \ \ \ i\text{\ sampled\ uniformly}$$
+we rather follow a less severe approach by keeping a fixed point $x_s$, setting $\Tilde{x}_0=x_s$ and then calculating the updates $\Tilde{x}_1,...,\Tilde{x}_m$ following the 2-steps iteration:
 
 
 
 \begin{enumerate} 
-    \item  $D_k\gets \nabla f_i(\Tilde{x}_k)-\nabla f_i(x_s)+\nabla f(x_s)$ 
+    \item  $D_k\gets \nabla f_i(\Tilde{x}_k)-\nabla f_i(x_s)+\nabla f(x_s)\ \ \ \ \ i\text{\ sampled\ uniformly}$ 
     \hfill\refstepcounter{equation}(\theequation)
 
     \item $\Tilde{x}_{k+1}\gets \Tilde{x}_k + D_k$
@@ -144,27 +143,26 @@ we rather follow a less severe approach by keeping a fixed point $x_s$, setting 
 
 Where $m$ is called the update frequency.
 
-After the $m$ steps we set a new value for $x_{s+1}$ as a function of $\{\Tilde{x}_1,...,\Tilde{x}_k\}$  and repeat the same $m$ updates, we say then that we have done one epoch. The whole process is repeated $T$ times and hence we get one inner loop and one outer loop.
+After the $m$ steps, we set a new value for $x_{s+1}$ as a function of $\{\Tilde{x}_1,...,\Tilde{x}_k\}$  and repeat the same $m$ updates, we say then that we have done one epoch. The whole process is repeated $T$ times and hence we get one inner loop and one outer loop.
 
-This new estimate of the gradient $D_k$, besides its unbiasedenss, is expected to have a lower variance (look at Bach slides!) that the basic direction $D$ \cite{allen2017katyusha}.
+This new estimate of the gradient $D_k$, besides its unbiasedeness, is expected to have a lower variance that the basic direction $D$ \cite{allen2017katyusha}.
 
-The direction 2.1 has many variants and has been designed in various forms, forming what can be called as variance reduced SGD methods. In this context, the first pioneering work was done in \cite{schmidt2017minimizing}, where a new algorithm : Stochastic Averaged Gradient (SAG) was studied. This algorithm enhances the convergence rate from sublinear rate $\mathcal{O}(\frac{1}{s})$ to linear rate $\mathcal{O}(\gamma^s)$ for some $\gamma<1$. \\
-\\Later on, many versions and improvements were done, including the following SVRG \cite{johnson2013accelerating}, SAGA \cite{defazio2014saga}, FINITO \cite{defazio2014finito}.
+The direction update (2.1) has many variants and has been designed in various forms, forming what can be called as variance reduced SGD methods. In this context, the first pioneering work was done in \cite{schmidt2017minimizing}, where a new algorithm : Stochastic Averaged Gradient (SAG) was studied. This algorithm enhances the convergence rate from sublinear rate $\mathcal{O}(\frac{1}{s})$ to linear rate $\mathcal{O}(\gamma^s)$ for some $\gamma<1$. \\
+\\Later on, many versions and improvements were done, including SVRG \cite{johnson2013accelerating}, SAGA \cite{defazio2014saga}, FINITO \cite{defazio2014finito}.
 The iteration discussed above formally concerns SVRG.
 It is worth mentioning, that while the above methods are described as variance reduced in literature, not all of them have a provable reduced variance in comparison with basic SGD. We can see "variance reduced" as a generic name rather than a systematic method. \\
-\\In the following we will be discussing the SVRG in more details. We choose SVRG over other variants due do its relatively simple convergence analysis as well as an enhancement of some other previous variance reduced methods, such as SAG and SAGA.
-
+\\In the following we will be discussing the SVRG in more details. We choose to study SVRG over other variants due do its relatively simple convergence analysis as well as its enhancement of some other previous variance reduced methods, such as SAG and SAGA.
 
 
 \section{SVRG Algorithm}
-The SVRG relies on Iteration 2.1, in which the point $x_s$ is updated every iteration based on the updates $\{\Tilde{x}_1,...,\Tilde{x}_k\}$. The point $x_s$ can be updated using one of the three options : 
+The SVRG relies on Iteration (2.1), in which the point $x_s$ is updated every epoch based on the updates $\{\Tilde{x}_1,...,\Tilde{x}_m\}$. The point $x_s$ can be updated using one of the three options : 
 \begin{enumerate}
     \item Option I : we choose the last update $x_s=\Tilde{x}_k\}$
     \item Option II : we randomly sample $t\in\{1,...,m\}$, and set $x_s=\Tilde{x}_t\}$
     \item Option III: we choose an average of the updates : $x_s=\frac{1}{m}\sum\limits_{i=1}^m \Tilde{x}_t$ 
 \end{enumerate}
+Algorithm \ref{SVRG} describe the pseudo-code of the SVRG with different options. One may be confused whether an option should be fixed or can be changed at each epoch. As this wasn't specified in articles we came across so far, we claim that a mixing of options choices is possible and this strategy yields the same convergence result. We also point this out in the proof.
 
-We will see as options can be different for each instance of the outer loop as the three options provide an equivalent analysis of one iteration of the outer loop. Algorithm \ref{SVRG} describe the pseudo-code of the SVRG with different options.
 \begin{algorithm}\label{SVRG}
     \SetKwInOut{Input}{Input}
     \SetKwInOut{Output}{Output}
@@ -217,8 +215,7 @@ Then,
 See next section
 \end{proof}
 \section{Convergence analysis}
-
-In this section we will prove Theorem 2.1 under the choice of options I and II. The proof of the option I is adapted from  the original paper describing the SVRG \cite{johnson2013accelerating}, option II is adapted from \cite{bubeck2015convex}. Proving option III is more technical and uses dissipativity theory. For the complete proof we refer the reader to \cite{hu2018dissipativity}.\\
+This section combines ideas from the original SVRG paper \cite{johnson2013accelerating}, \cite{bubeck2015convex} and  \cite{hu2018dissipativity}.
 \\We begin by a useful lemma:
 \begin{lemma}\label{lemma1}
 We have for any $x\in\mathbb{R}^d$:
@@ -327,8 +324,8 @@ $$=2\left(\frac{1}{\gamma}+2\beta m \eta^2\right)\E[f(X)-f(x^*)]$$
 Now the above analysis concerns the inner loop at some fixed instance $s$ of the outer loop, and recall that $X=X_{s-1}$
 
 Hence,
-
 $$\E[\left(f({X}_s)-f(x^*)\right) \leq \gamma\E[f({X}_{s-1})-f(x^*)]$$
+This last inequality is obtained regardless of the chosen option at epoch $s$. This is why one is free to allow a mix of options choice between epochs.
 
 Finally we get:
 
@@ -338,7 +335,7 @@ $$\E[\left(f({X}_s)-f(x^*)\right)]
 
 
 \section{Oracle complexity}
-
+Now we discuss the oracle complexity of SVRG. One important remark here is that since SVRG has hyperparameters : $\eta$ and $m$ one can tune these parameters under their suitable constraints to find the optimal oracle complexity. However, a common way to write the complexity is to find the simplest way to write it as a simple dependence of $n$, $\epsilon$, $\kappa$.
 \begin{corollary}
 
 
@@ -374,22 +371,48 @@ $$ \mathcal{C}(\mathcal{A},n,\epsilon)\sim \left(n+\kappa \right)\log\left(\frac
 
 \end{proof}
 
-\chapter{L-Katyusha}
-
+\chapter{L-Katyusha  (Incomplete)}
 \section{Introduction}
+Let us go back again to the gradient descent method. As discussed in Preliminaries the iteration complexity for Gradient descent when applied to a function $g$ yields the following :
+\begin{itemize}
+    \item if $g$ is $\beta$-smooth : 
+    \begin{equation} \label{eq:smooth}
+g(x_t)-g(x^*)\leq \frac{2\beta\| x_0-x^*\|^2}{t-1}
+\end{equation}
+    \item if $g$ is $\beta$-smooth and $\alpha$-strongly convex :\begin{equation} \label{eq:strg}
+g(x_{t+1})-g(x^*)\leq \frac{\beta}{2}\exp(-\frac{4t}{\frac{\beta}{\alpha}+1})\| x_1-x^*\|^2
+\end{equation} 
+\end{itemize}
+Yet, these two convergence rates could be improved by acceleration's methods.
+In fact, accelerating gradient descent is a well-known technique that improves the iteration cost and in some cases even reach the optimal convergence rate.
+Two famous techniques were proposed : Polyak's Heavy ball and Nesterov's momentum. They both rely on a modification of the basic GD iteration:
+\begin{equation}\label{iteration}
+    x_{k+1}\gets x_k-\eta_k\nabla g(x_k)
+\end{equation}
+In fact,
+\begin{itemize}
+    \item \textbf{Polyak heavy-ball} :
+    This method relies on adding a momentum term :
+    $$ x_{k+1}\gets x_k-\eta_k\nabla g(x_k)+{\theta_k(x_k-x_{k-1})}$$
+    \item \textbf{Nesterov's momentum} : 
+    This is more sophisticated than the previous method:
+    $$y_{k+1}\gets x_k-\eta_k\nabla g(x_k)$$ $$x_{k+1}\gets y_{k+1}+\mu_k(y_{k+1}-y_k)$$
+\end{itemize}
 
-One compelling idea is th
-\subsection{About acceleration techniques for GD}
+Now, when applying the Polyak's heavy-ball to minimizing .... \textbf{need a good reference for this, momentum better than heavy ball? momentum fails?}
+\section{Acceleration in SGD world}
+Now, a natural question is whether these acceleration's methods are beneficial to enhance the stochastic Gradient Descent oracle complexity?
+In an intuitive way, one should be very careful when blindly accelerating a SGD Algortihm. In fact, as the direction of the search is not guaranteed to be descent at each step, accelerating it in the wrong direction could worsen the convergence rate or even make the SGD fail. \textbf{(construct an example)}\\
+\\There have been very recently some attempts for adapting Nesterov's momentum to SGD. \cite{nitanda2016accelerated} suggested an new SGD algorithm that combines the SVRG, mini-batching and Nesterov's acceleration. It showed that the oracle complexity has a slight improvement under some conditions on the batch size. \cite{lin2015universal} suggests a general framework called Catalyst that enables acceleration for many SGD algorithms with provable decrease in oracle complexity.
+More importantly, \cite{allen2017katyusha} made a breakthrough by suggesting a modified version of Nesterov's momentum called Katyusha momentum.
 
-\subsection{Acceleration in the SGD world}
-Acceleration can deteriorate SGD... Paper's failure...
-Catalyst... we will skip it to discuss its more sophisticated ... Katyusha. However, the whole katyusha paper deals with the composite case strongly-convex....
-L-katyusha shows   ....
-loopless 
-easy for convergence analysis.
+This acceleration, when applied to SVRG yields the first known optimal Oracle complexity for Problem \ref{pb1} as we will discuss in the next chapter.
+\subsection{Katyusha momentum}
 
-What is more in Katyusha not in the previous versions?
-\section{Algorithm and convergence analysis}
+Description of Katyusha momentum+motivation+Katyusha algorithm for Problem \ref{pb1}
+
+\subsection{L-Katyusha : a simplified Katyusha}
+In the original Katyusha paper \cite{allen2017katyusha} only the composite case was discussed and the condition number is $\kappa=\frac{\beta}{\alpha}$ such that $\alpha$ is now the strong-convexity constant of $\psi$. If we want to apply the result for our Problem (\ref{pb1}), as the composite $\psi$ is $0$, $\alpha=0$ and the oracle complexity would explode. In fact, \cite{allen2017katyusha} doesn't at all assume functions $f_i$ to be strongly-convex.\\ \\ Fortunately, a recent paper \cite{kovalev2019don} suggests a Katyusha version designed exactly for Problem (\ref{pb1}). This version is called L-Katyusha. Not only does it consider the non-composite case, but also suggests a modified version of Katyusha where the outer loop is removed and replaced by a new introduced randomness in the algorithm. Surprisingly, L-Katyusha has the same oracle complexity as Katyusha and hence is optimal. One more important thing is that L-Katyusha has a much simpler convergence analysis that we will present in the next section.
 \begin{algorithm}
     \SetKwInOut{Input}{Input}
     \SetKwInOut{Output}{Output}
@@ -416,6 +439,12 @@ What is more in Katyusha not in the previous versions?
     \caption{L-Katyusha}
 \end{algorithm}
 
+
+\section{Algorithm and convergence analysis}
+
+
+
+
 \newpage
 \begin{theo}
 LLet us consider our problem setting...., we apply L-Katyusha with the following parameters:
@@ -438,13 +467,22 @@ The proof is detailed in the next section
 
 
 \chapter{About Optimality}
-\section{Definition}
 
-{{Optimality does not mean that for every function L-Katyusha has the lowest complexity. This is completely wrong as we can easity find a coutnerexample.....}}
-\textbf{Optimality means that for the class of problems, no algorithm can do better....}
+Brainstorming
+\begin{itemize}
+    \item {Optimality is not absolute! it depends on the regime we are considering}
+    \item Optimality does not mean that for every function L-Katyusha has the lowest complexity. This is completely wrong as we can easily find a counterexample...
+    \item L-katyusha's Optimality means that for the class of problem \ref{pb1}, no other algorithm can has a lower oracle complexity....
+    \item In fact, in general in mathematical optimization, tendency is to design algorithms on a class of problems with general enough assumptions. In contrast, as we add assumptions and have more knowledge about the structure of the function, one can come up with faster and better algorithms that eventually has an even lower oracle complexity than the ...
+\end{itemize}
 
-In fact, in general in mathematical optimization, tendence is to design problem on a class of problems to design algorihm for general enough assumptions. In contrast, as we add assumptions and have more knowlege about the structure of the fucntion, one can come up with faster and better algorithms that eventually has an even lower oracl complexity that the ...
-\section{L-katyusha is optimal}
+
+\chapter{Questions}
+\begin{itemize}
+    \item Is it better to deepen the discussion and provide more details and interpretation for the above work (such as construct examples, counterexamples...)?  or move to proximal versions Prox-SVRG/MiG/Prox-Katyusha....?
+    \item Is it a good idea to suggest my own tweak of some of the previous algorithms and do experimental work? theoretical investigation might be challenging in the available time
+    \item is the mathematical content so far enough
+\end{itemize}
 
 \bibliography{reference}{}
 \bibliographystyle{abbrv}
