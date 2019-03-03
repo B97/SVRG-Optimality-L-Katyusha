@@ -120,7 +120,7 @@ Where :
 
 
 
-We will discuss in detail two versions of the SGD : SVRG which is a variance reduced version of the SGD, and L-Katyusha which is a loopless (i.e without the inner loop), accelerated version of SVRG. For each algorithm, we conduct a convergence analysis and assess the oracle complexity. We conclude by discussing the optimality and showing that L-Katyusha is optimal in some sense that we will define. 
+We will discuss in detail two versions of the SGD : SVRG which is a variance reduced version of the SGD, and L-Katyusha which is a loopless (i.e without the outer loop), accelerated version of SVRG. For each algorithm, we conduct a convergence analysis and assess the oracle complexity. We conclude by discussing the optimality and showing that L-Katyusha is optimal in some sense that we will define. 
 
 \chapter{SVRG}
 \section{Introduction to variance reduced techniques}
@@ -145,7 +145,7 @@ Where $m$ is called the update frequency.
 
 After the $m$ steps, we set a new value for $x_{s+1}$ as a function of $\{\Tilde{x}_1,...,\Tilde{x}_k\}$  and repeat the same $m$ updates, we say then that we have done one epoch. The whole process is repeated $T$ times and hence we get one inner loop and one outer loop.
 
-This new estimate of the gradient $D_k$, besides its unbiasedeness, is expected to have a lower variance that the basic direction $D$ \cite{allen2017katyusha}.
+This new estimate of the gradient $D_k$, besides its unbiasedeness, is likely to have a lower variance that the basic direction $D$ \cite{allen2017katyusha}.
 
 The direction update (2.1) has many variants and has been designed in various forms, forming what can be called as variance reduced SGD methods. In this context, the first pioneering work was done in \cite{schmidt2017minimizing}, where a new algorithm : Stochastic Averaged Gradient (SAG) was studied. This algorithm enhances the convergence rate from sublinear rate $\mathcal{O}(\frac{1}{s})$ to linear rate $\mathcal{O}(\gamma^s)$ for some $\gamma<1$. \\
 \\Later on, many versions and improvements were done, including SVRG \cite{johnson2013accelerating}, SAGA \cite{defazio2014saga}, FINITO \cite{defazio2014finito}.
@@ -161,9 +161,9 @@ The SVRG relies on Iteration (2.1), in which the point $x_s$ is updated every ep
     \item Option II : we randomly sample $t\in\{1,...,m\}$, and set $x_s=\Tilde{x}_t\}$
     \item Option III: we choose an average of the updates : $x_s=\frac{1}{m}\sum\limits_{i=1}^m \Tilde{x}_t$ 
 \end{enumerate}
-Algorithm \ref{SVRG} describe the pseudo-code of the SVRG with different options. One may be confused whether an option should be fixed or can be changed at each epoch. As this wasn't specified in articles we came across so far, we claim that a mixing of options choices is possible and this strategy yields the same convergence result. We also point this out in the proof.
+Algorithm \ref{SVRG} describe the pseudo-code of the SVRG with different options. One may be confused whether an option should be fixed or can be changed at each epoch. As this wasn't specified in articles we came across so far, we claim that a mixing of options I and II is possible and this strategy yields the same convergence result as if we fix one of the two. 
 
-\begin{algorithm}\label{SVRG}
+\begin{algorithm}[H]\label{SVRG}
     \SetKwInOut{Input}{Input}
     \SetKwInOut{Output}{Output}
     \Input{ $\eta>0$, $x_0\in\mathbb{R}^d$, update frequency $m\geq 1$}
@@ -185,11 +185,13 @@ Algorithm \ref{SVRG} describe the pseudo-code of the SVRG with different options
             \EndFor}
                 
   
-            Option I : $x_s=\Tilde{x}_m$
             
-            Option II :  Sample uniformly $t\in\{1,...,m\}$,  $x_s=\Tilde{x}_t$
             
-            Option III : $x_s=\frac{1}{m}\sum\limits_{i=1}^m \Tilde{x}_t$
+            Option I :  Sample uniformly $t\in\{1,...,m\}$,  $x_s=\Tilde{x}_t$
+            
+            Option II : $x_s=\frac{1}{m}\sum\limits_{i=1}^m \Tilde{x}_{t-1}$
+            
+            Option III : $x_s=\Tilde{x}_m$
             
             \EndFor}
     \caption{SVRG}
@@ -200,7 +202,10 @@ Now we state the theorem that proves the convergence of the SVRG.
 \begin{theo}
 LLet us consider applying SVRG to solving Problem \ref{pb1}.
 Let $x^*=\argmin_{x\in\mathbb{R}^d} f(x)$.
-Let also $m$ be sufficiently large such that the following holds:
+\begin{itemize}
+    \item Under options I or II:
+    
+    Let $\eta<\frac{1}{4\beta}$, and $m$ be sufficiently large such that the following holds:
 \begin{equation}
     \gamma=\frac{1}{\alpha\eta(1-2\beta\eta)m}+\frac{2\eta\beta}{1-2\beta\eta}<1
 \end{equation}   
@@ -209,13 +214,33 @@ Then,
     \E[f(X_s)-f(x^*)]\leq \gamma^s(f(x_0)-f(x^*))
 \end{equation}
 
+    \item Under Option III:
+    
+    Let $m$ and $\eta$ be chosen such that the following holds:
+\begin{equation}
+    \mu=\kappa\left(\left(1-2\eta\alpha(1-\eta\beta)\right)^m+\frac{2\eta\beta^2}{\alpha(1-\eta\beta)}\right)<1
+\end{equation}
+Then,
+\begin{equation}
+    \E[f(X_s)-f(x^*)]\leq \mu^s(f(x_0)-f(x^*))
+\end{equation}
+
+\end{itemize}
+
+
+
 
 \end{theo}
 \begin{proof}
 See next section
 \end{proof}
 \section{Convergence analysis}
-This section combines ideas from the original SVRG paper \cite{johnson2013accelerating}, \cite{bubeck2015convex} and  \cite{hu2018dissipativity}.
+In this section we prove Theorem 2.1. We combine ideas from \cite{johnson2013accelerating}, \cite{bubeck2015convex},  \cite{hu2018dissipativity} and \cite{tan2016barzilai}. 
+The very first convergence analysis that is presented in the original SVRG paper \cite{johnson2013accelerating} tackles only Option I although Option II was used in experiments. The convergence of Option II appears in \cite{bubeck2015convex} and option III was recently proved in \cite{tan2016barzilai}. \cite{hu2018dissipativity} also proved Option III with a slightly better improvement in the decaying constant yet it uses an elaborated tool from dynamical system theory and dissipativity theory that will not be discussing here. However we show that the new decaying constant could be obtained by slighlty modifying the proof given in \cite{tan2016barzilai}.
+
+
+\subsection{Option I \& II}
+
 \\We begin by a useful lemma:
 \begin{lemma}\label{lemma1}
 We have for any $x\in\mathbb{R}^d$:
@@ -244,16 +269,17 @@ We conclude by using Inequality \ref{ineq1} and summing over $i$:
 $$\frac{1}{n}\sum_{i=1}^n\|\nabla f_i(x)-\nabla f_i(x^*)\|^2\leq 2\beta(f(x)-f(x^*))$$
 \end{proof}
 
-\begin{proof}
+\begin{proof}[Proof of Theorem \ref{theo:svrg}]
+
 
 Let us consider a fixed time step $s$ of the outer loop: $X=X_{s-1}$, $\mu=\nabla f(X)=\frac{1}{n}\sum_{i=1}^n\nabla f_i(X)$
 \newline
 Consider : $v_t=\nabla f_{I_t}(\Tilde{X}_{t-1})-\nabla f_{I_t}(X)+\mu$
 \newline
 Now we have the following :
-$$\E[\|v_t\|^2|\Tilde{X}_{t-1}]\overset{(a)}{\leq} 2 \E[\|\nabla f_{I_t}(\Tilde{X}_{t-1})-\nabla f_{I_t}(x^*)|\Tilde{X}_{t-1}]+2\E[\|\nabla f_{I_t}(X)-\nabla f_{I_t}(x^*)-\nabla f(X)\|^2|\Tilde{X}_{t-1}]$$
+$$\E[\|v_t\|^2|\Tilde{X}_{t-1}]\overset{(a)}{\leq} 2 \E[\|\nabla f_{I_t}(\Tilde{X}_{t-1})-\nabla f_{I_t}(x^*)\|^2|\Tilde{X}_{t-1}]+2\E[\|\nabla f_{I_t}(X)-\nabla f_{I_t}(x^*)-\nabla f(X)\|^2|\Tilde{X}_{t-1}]$$
 $$\overset{(b)}{\leq} 2 \E[\|\nabla f_{I_t}(\Tilde{X}_{t-1})-\nabla f_{I_t}(x^*)\|^2|\Tilde{X}_{t-1}]+2\E[\|\nabla f_{I_t}(X)-\nabla f_{I_t}(x^*)\|^2|\Tilde{X}_{t-1}]$$
-$$\overset{(c)}{\leq} 4\beta f(\Tilde{X}_{t-1})-2f(x^*)+f(X) $$
+$$\overset{(c)}{\leq} 4\beta\left( f(\Tilde{X}_{t-1})-2f(x^*)+f(X) \right)$$
 
 Where \begin{itemize}
     \item (a) follows from : for all $x$ and $y$, $(x+y)^2\leq 2(x^2+y^2)$ 
@@ -262,7 +288,7 @@ Where \begin{itemize}
     
 \end{itemize} 
 Since $\Tilde{X}_{t}=\Tilde{X}_{t-1}-\eta v_t$, we have
-$$\|\Tilde{X}_{t}-x^*\|^2= \|\Tilde{X}_{t-1}-x^*\|^2-2\eta(\Tilde{X}_{t-1}-x^*)^\top \E[v_t|\Tilde{X}_{t-1}]+\eta^2\E[\|v_t\|^2|\Tilde{X}_{t-1}]$$
+$$\E[\|\Tilde{X}_{t}-x^*\|^2|\Tilde{X}_{t-1}]= \|\Tilde{X}_{t-1}-x^*\|^2-2\eta(\Tilde{X}_{t-1}-x^*)^\top \E[v_t|\Tilde{X}_{t-1}]+\eta^2\E[\|v_t\|^2|\Tilde{X}_{t-1}]$$
 $$\E[\|\Tilde{X}_{t}-x^*\|^2|\Tilde{X}_{t-1}]=\E[\|\Tilde{X}_{t-1}-x^*\|^2|\Tilde{X}_{t-1}]-2\eta(\Tilde{X}_{t-1}-x^*)^\top\E[v_t|\Tilde{X}_{t-1}]+\eta^2\E[\|v_t\|^2|\Tilde{X}_{t-1}]$$
 $$\leq \|\Tilde{X}_{t-1}-x^*\|^2-2\eta(\Tilde{X}_{t-1}-x^*)^\top\nabla f(\Tilde{X}_{t-1})+4\beta\eta^2\left(f(\Tilde{X}_{t-1})-2f(x^*)+f(X)\right) $$
 $$\leq \|\Tilde{X}_{t-1}-x^*\|^2-2\eta\left( f(\Tilde{X}_{t-1})-f(x^*)\right)+4\beta \eta^2 \left( f(\Tilde{X}_{t-1})-2f(x^*)+f(X)\right) $$
@@ -274,11 +300,11 @@ $$\E[\|\Tilde{X}_{t}-x^*\|^2|\Tilde{X}_{t-1}]+2\eta(1-2\eta\beta)\left(f(\Tilde{
 Taking the expectation of both sides and applying the tower property we get:
 $$\E[\|\Tilde{X}_{t}-x^*\|^2]+2\eta(1-2\eta\beta)\left(\E[f(\Tilde{X}_{t-1})]-f(x^*)\right)\leq \E[\|\Tilde{X}_{t-1}-x^*\|^2] +4\beta\eta^2\left(\E[f(X)]-f(x^*)\right)$$
 After summing over $t$ between $1$ and $m$ we obtain:
-$$\E[\|\Tilde{X}_m-x^* \|^2]+2\eta(1-2\eta\beta)\left(\E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]-f(x^*)\right) \leq \E[\|\Tilde{X}_0-x^* \|^2]+4\beta m \eta^2(\E[f(X)]-f(x_0))$$
+$$\E[\|\Tilde{X}_m-x^* \|^2]+2\eta(1-2\eta\beta)\left(\E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]-mf(x^*)\right) \leq \E[\|\Tilde{X}_0-x^* \|^2]+4\beta m \eta^2(\E[f(X)]-f(x^*))$$
 Hence,
 
 \begin{equation}\label{eqsvrg}
-2\eta(1-2\eta\beta)\left(\E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]-f(x^*)\right) \leq \E[\|\Tilde{X}_0-x^* \|^2]+4\beta m \eta^2(\E[f(X)]-f(x_0))
+2\eta(1-2\eta\beta)\left(\E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]-mf(x^*)\right) \leq \E[\|\Tilde{X}_0-x^* \|^2]+4\beta m \eta^2(\E[f(X)]-f(x^*))
 \end{equation}
 
 note that $\Tilde{X}_0=X$, and by using $\alpha$-strong convexity of $f$, we get:
@@ -286,40 +312,35 @@ $$f(x^*)-f(X)\leq \underbrace{\nabla f(x^*)}_{=0}{}^ \top(x^*-X)-\frac{\alpha}{2
 Hence,
 
 \begin{equation}
-    2\eta(1-2\eta\beta)\left(\E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]-f(x^*)\right) \leq (\frac{2}{\alpha}+4\beta m \eta^2)(\E[f(X)]-f(x_0))
+    2\eta(1-2\eta\beta)m\left(\E\left[\frac{1}{m}\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]-f(x^*)\right) \leq (\frac{2}{\alpha}+4\beta m \eta^2)(\E[f(X)]-f(x^*))
 \end{equation}
 
 
 
 \begin{equation}
-   \E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]-f(x^*) \leq \underbrace{\left(\frac{1}{\alpha\eta(1-2\beta\eta)m}+\frac{2\beta\eta}{1-2\beta\eta}\right)}_{\gamma}(\E[f(X)]-f(x_0))
+   \E\left[\frac{1}{m}\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]-f(x^*) \leq \underbrace{\left(\frac{1}{\alpha\eta(1-2\beta\eta)m}+\frac{2\beta\eta}{1-2\beta\eta}\right)}_{\gamma}(\E[f(X)]-f(x^*))
 \end{equation}
 
 
 Now for each option we have the following :
 \begin{itemize}
-    \item  \underline{Option I} : $X_s=\sum\limits_{t=1}^m \Tilde{X}_{t-1}$
+
+    \item \underline{Option I} : Sample $I_t$ uniformly in $\{0,...,m-1\}$  and set $X_s= \Tilde{X}_{I_t}$
+    $$\E[f(X_s)]=\E\left[\E[f(X_s)|\Tilde{X}_0,...\Tilde{X}_{m-1}]\right]=\E\left[\frac{1}{m}\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]    $$
+    \item \underline{Option II} : $X_s= \frac{1}{m}\sum\limits_{t=1}^m\Tilde{X}_{t-1}$
+    $$\E[f(X_s)]=\E\left[
+    f\left(\frac{1}{m}\sum\limits_{t=1}^m\Tilde{X}_{t-1}\right)\right]$$
     Using the convexity of $f$, we have :
-    $$f(X_s)\leq \sum\limits_{t=1}^m f(\Tilde{X_{t-1}})$$
-    Hence 
-    $$\E[f(X_s)]\leq \E\left[\sum\limits_{t=1}^m f(\Tilde{X}_{t-1})\right]$$
+    $$f\left(\frac{1}{m}\sum\limits_{t=1}^m\Tilde{X}_{t-1}\right)\leq \frac{1}{m}\sum\limits_{t=1}^m f(\Tilde{X}_{t-1})$$
+     Hence 
+    $$\E[f(X_s)]\leq \E\left[\frac{1}{m}\sum\limits_{t=1}^m f(\Tilde{X}_{t-1})\right]$$
     
-    \item \underline{Option II}
-    $$\E[f(X_s)]=\E\left[\E[f(X_s)|\Tilde{X}_0,...\Tilde{X}_{m-1}]\right]=\E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]    $$
-    \item \underline{Option III}
-    $$\E[f(X_s)]=\E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]    $$
 
 \end{itemize}
 
-We can conclude that regardless of the chosen option, we will  have:
-$$   \E\left[\sum\limits_{t=1}^mf(\Tilde{X}_{t-1})\right]-f(x^*) \leq \gamma(\E[f(X)]-f(x_0))  $$
+We can conclude that regardless of the chosen option (I or II), we get:
+$$   \E[f(X_s)]-f(x^*) \leq \gamma(\E[f(X)]-f(x_0))  $$
 
-
-Hence, Inequality (\ref{eqsvrg}) yields : 
-$$\E[\|\Tilde{X}_m-x^* \|^2]+2\eta(1-2\eta\beta)m\E[f(X_s)-f(x^*)] \leq \E[\|\Tilde{X}_0-x^* \|^2]+4\beta m \eta^2\E[f(X) ]$$
-$$=E[\|X-x^*\|^2]+4\beta m\eta^2 \E[f(X)-f(x^*)]$$
-$$\leq \frac{2}{\gamma} \E[f(X)-f(x^*)]+4\beta m \eta^2\E[f(X)-f(x^*)]$$
-$$=2\left(\frac{1}{\gamma}+2\beta m \eta^2\right)\E[f(X)-f(x^*)]$$
 
 Now the above analysis concerns the inner loop at some fixed instance $s$ of the outer loop, and recall that $X=X_{s-1}$
 
@@ -334,8 +355,35 @@ $$\E[\left(f({X}_s)-f(x^*)\right)]
 \end{proof}
 
 
+\subsection{Option III}
+
+
+Let us consider a fixed time step $s$ of the outer loop: $X=X_{s-1}$, $\mu=\nabla f(X)=\frac{1}{n}\sum_{i=1}^n\nabla f_i(X)$
+\newline
+Consider : $v_t=\nabla f_{I_t}(\Tilde{X}_{t-1})-\nabla f_{I_t}(X)+\mu$
+
+$$\E[\|v_t\|^2|\Tilde{X}_{t-1}]=\E[\|\nabla f_{I_t}(\Tilde{X}_{t-1})-\nabla f_{I_t}(X)+\mu \|^2|\Tilde{X}_{t-1}]$$
+$$\leq 2\E[\|\nabla f_{I_t}(\Tilde{X}_{t-1})-\nabla f_{I_t}(x^*) \|^2|\Tilde{X}_{t-1}] + 2\E[\|\nabla f_{I_t}(X)-\nabla f_{I_t}(x^*) + \nabla f(X)\|^2|\Tilde{X}_{t-1}]$$
+$$\leq 2\E[\|\nabla f_{I_t}(\Tilde{X}_{t-1})-\nabla f_{I_t}(x^*) \|^2|\Tilde{X}_{t-1}] + 2\E[\|\nabla f_{I_t}(X)-\nabla f_{I_t}(x^*)\|^2|\Tilde{X}_{t-1}]$$
+$$\leq 2\beta \E[(\Tilde{X}_{t-1}-x^*)^\top(\nabla f_{I_t}(X)-\nabla f_{I_t}(x^*))|\Tilde{X}_{t-1}]+2\beta^2\|X-x^*\|^2 $$
+
+Now,
+
+$$\E[\|\Tilde{X}_t-x^* \|^2|\Tilde{X}_{t-1},X] = \E[\|\Tilde{X}_{t-1}-\eta v_t-x^* \|^2|\Tilde{X}_{t-1},X]  $$
+
+$$\|{X}_{t-1}-x^* \|^2-2\eta\E[(\Tilde{X}_{t-1})^\top v_t|\Tilde{X}_{t-1},X]+\eta^2\E[\| v_t\|^2|\Tilde{X}_{t-1},X] $$
+
+$$\leq \|{X}_{t-1}-x^* \|^2-2\eta(\Tilde{X}_{t-1})^\top\nabla f(\Tilde{X}_{t-1}+2\eta^2\beta(\Tilde{X}_{t-1}-x^*)^\top\nabla f(\Tilde{X}_{t-1})+2\eta^2\beta^2\|X-x^* \|^2$$
+
+$$=\|{X}_{t-1}-x^*\|^2-2\eta\alpha(1-\eta\beta)$$
+
+
+
+
+
+
 \section{Oracle complexity}
-Now we discuss the oracle complexity of SVRG. One important remark here is that since SVRG has hyperparameters : $\eta$ and $m$ one can tune these parameters under their suitable constraints to find the optimal oracle complexity. However, a common way to write the complexity is to find the simplest way to write it as a simple dependence of $n$, $\epsilon$, $\kappa$.
+Now we discuss the oracle complexity of SVRG. One important remark here is that since SVRG has hyperparameters : $\eta$ and $m$, one can tune these parameters under their suitable constraints to find the optimal oracle complexity. However, a common way to write the complexity is to find the simplest way to write it as a simple dependency on $n$, $\epsilon$, $\kappa$. This approach makes it clear how the oracle complexity scales with $n$ and $\kappa$ as they are crucial parameters of our Problem \ref{pb1}.
 \begin{corollary}
 
 
@@ -361,7 +409,7 @@ Hence, $$s \approx \frac{\log(\frac{1}{\epsilon})}{\log(\frac{1}{\gamma})} \appr
 
 Where we dropped the term $\left(f({x}_{0})-f(x^*)\right)$  following the conventions discussed in Section ??.
 
-Recall that $s$ is the number of instances of the outer loop. Let us now come back to the algorithm and assess how many oracle calls de we make at each iteration. First, we make $n$ oracle calls for computing $\mu$, then we have two oracle calls in every iteration of the inner loop. Hence we have in total $n+2m$ oracle calls per outer iteration.
+Recall that $s$ is the number of instances of the outer loop. Let us now come back to the algorithm and assess how many oracle calls do we make at each iteration. First, we make $n$ oracle calls for computing $\mu$, then we have two oracle calls in every iteration of the inner loop. Hence we have in total $n+2m$ oracle calls per outer iteration.
 Hence the total number of calls is approximately :
 $$(n+40\kappa) {\log\left(\frac{1}{\epsilon}\right)}$$
 Now we conclude that :
@@ -413,7 +461,7 @@ Description of Katyusha momentum+motivation+Katyusha algorithm for Problem \ref{
 
 \subsection{L-Katyusha : a simplified Katyusha}
 In the original Katyusha paper \cite{allen2017katyusha} only the composite case was discussed and the condition number is $\kappa=\frac{\beta}{\alpha}$ such that $\alpha$ is now the strong-convexity constant of $\psi$. If we want to apply the result for our Problem (\ref{pb1}), as the composite $\psi$ is $0$, $\alpha=0$ and the oracle complexity would explode. In fact, \cite{allen2017katyusha} doesn't at all assume functions $f_i$ to be strongly-convex.\\ \\ Fortunately, a recent paper \cite{kovalev2019don} suggests a Katyusha version designed exactly for Problem (\ref{pb1}). This version is called L-Katyusha. Not only does it consider the non-composite case, but also suggests a modified version of Katyusha where the outer loop is removed and replaced by a new introduced randomness in the algorithm. Surprisingly, L-Katyusha has the same oracle complexity as Katyusha and hence is optimal. One more important thing is that L-Katyusha has a much simpler convergence analysis that we will present in the next section.
-\begin{algorithm}
+\begin{algorithm}\labe{katyusha}
     \SetKwInOut{Input}{Input}
     \SetKwInOut{Output}{Output}
     \Input{ $\theta_1,\theta_2\geq0$, probability $p\in(0,1]$, 
@@ -446,18 +494,97 @@ In the original Katyusha paper \cite{allen2017katyusha} only the composite case 
 
 
 \newpage
+
 \begin{theo}
-LLet us consider our problem setting...., we apply L-Katyusha with the following parameters:
+
+
+
+Let us consider our problem setting \ref{pb1}, we apply L-Katyusha with the following parameters:
+Assume that parameters $\theta_1$,$\theta_2$,$\eta$ and $p$ are chosen such that the following holds
+
+$$\gamma=\max\left\{\frac{\kappa}{\kappa+\eta},1-\theta_1(1-\theta_2),1-\frac{p\theta_1}{1+\theta_1}\right\}<1 $$
+
+Then, 
+\begin{equation}\label{eqkaty}
+    E[f(X_k)] -f(x^*)\leq \gamma^k \Phi_0
+\end{equation}
+
+
+where $\Phi_0=\frac{p}{\theta_2(1+\theta_1)}(f(y_0)-f(x^*))+f(w_0)-f(x^*)+\frac{\beta(1+\frac{\eta}{\kappa})}{2\eta}\frac{p\theta_1}{\theta_2(1+\theta_1)}\|z_0-x^*\|^2$
+
+In particular, the L-Katyusha has a linear convergence rate.
+
+
+\end{theo}
+
+
+\begin{proof}
+See next Subsection
+\end{proof}
+
+
+\begin{corollary}
+Let us consider our problem setting \ref{pb1}, we apply L-Katyusha with the following parameters:
 $p=\frac{1}{n}$,  $\theta_1=\min\left\{\sqrt{\frac{2n}{3\kappa}},\frac{1}{2}\right\} $, $\theta_2=\frac{1}{2}$, $\eta=\frac{\theta_2}{(1+\theta_2)\theta_1} $.
 
 Then, the oracle complexity is:
 $$ \mathcal{C}(\mathcal{A},n,\epsilon)\sim \left(n+\sqrt{\kappa n}\right)\log\left(\frac{1}{\epsilon}\right)$$
 Where $\mathcal{A}$ is the L-Katyusha with the chosen parameters.
-\end{theo}
-
+\end{corollary}
 
 \begin{proof}
-The proof is detailed in the next section
+First, one should be careful about the quantity $\Phi_0$ as it does not depend only on starting points but also the parameters, namely $\kappa$. 
+
+We structure the proof in three parts :
+
+\textbf{\underline{Part 1}}: Let us find an upper bound for 
+    $\Phi_0$
+    
+In order to proceed in the same manner as in corollary ?? we need to bound $\Phi_0$ by a quantity which depends only on starting points, and most importantly independent of $n$ and $\kappa$. It is hence sufficient to bound the quantities $\frac{p}{\theta_2(1+\theta_1)}$ and $\frac{\beta(1+\frac{\eta}{\kappa})}{2\eta}\frac{p\theta_1}{\theta_2(1+\theta_1)}$  by some constants 
+In fact,
+It is easy to see
+$$\frac{p}{\theta_2(1+\theta_1)}=\frac{2}{n(1+\theta_1)}\leq2 $$ 
+Bounding the second quantity is more subtle.
+
+Let us distinguish the two cases :
+
+\underline{$\theta_1=\frac{1}{2}$}
+
+
+In this case $\theta_1, \theta_2$ and $\eta$ are constants.
+Hence the quantity we care to bound becomes :
+$$\beta(1+\frac{1}{\kappa})p=\beta(1+\frac{1}{\kappa})\frac{1}{n}$$
+Yet by the definition of $\theta_1$, we have $$\sqrt{\frac{2n}{3\kappa}}\geq \frac{1}{2} $$
+
+By ignoring the technicalities that arises from the constants we can roughly bound:
+
+$\frac{1}{n}\leq \frac{1}{\kappa}$
+hence 
+$$\beta(1+\frac{1}{\kappa})\frac{1}{n}\leq\beta (1+\frac{1}{\kappa^2}) $$
+Using the assumption we conclude immediately that the quantity is $\frac{\beta(1+\frac{\eta}{\kappa})}{2\eta}\frac{p\theta_1}{\theta_2(1+\theta_1)}$ bounded by a constant.
+
+\underline{$\theta_1=\sqrt{\frac{2n}{3\kappa}}$}
+
+In this case we have roughly 
+$\frac{1}{\kappa} \geq \frac{1}{n}$.
+By bounding $\frac{\theta_1}{1+\theta_1}\leq1$, $\sqrt{\frac{\kappa}{n}}\geq1$ and $\sqrt{\frac{1}{n\kappa}}\leq \frac{1}{n}$, the quantity of interest becomes :
+$$\beta(1+\frac{1}{n})\frac{1}{n} $$
+Again we can conclude by assumption..
+
+Therefore, we Inequality (\ref{eqkaty}) becomes $$\E[f(X_k)] -f(x^*)\leq \gamma^k \Tilde{\Phi}_0$$
+Where $ \Tilde{\Phi}_0=c\left((f(y_0)-f(x^*))+(f(w_0)-f(x^*))+\|z_0-x^*\|^2\right)$, for some constant $c$
+
+\textbf{\underline{Part 2}}: Let us find the iteration complexity.
+
+With the parameters choices we have
+
+\textbf{\underline{Part 3}}: Now let us find the oracle complexity.
+Consider that Algorithm \ref{katyusha} is at iteration $t$. the probability that $w_{s}=w_{s-1}$ is $p$ and in this case we don't need to compute again $\nabla f(w_k)$ assuming that it is stored in the memort, whereas $w_{s}=y_s$ with probability 1-p and we need to compute  $\nabla f(w_k))$. Recall that computing $\nabla f(w_k))$ involves $n$ oracle calls. And notice also that in every iteration we compute $\nabla f_i(x)$, hence one oracle call with probability 1.
+Therefore, the expected number of oracle calls per iteration is $1+np$.
+By the choice $p=\frac{1}{n}$, we conclude that the expected number of oracle calls per iteration is 2, and therefore the Oracle complexity is:
+
+$$ \mathcal{C}(\mathcal{A},n,\epsilon)\sim \left(n+\sqrt{n\kappa} \right)\log\left(\frac{1}{\epsilon}\right)$$
+
 \end{proof}
 
 \section{Proof of Theorem 2.1}
