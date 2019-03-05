@@ -157,13 +157,13 @@ It is worth mentioning, that while the above methods are described as variance r
 \section{SVRG Algorithm}
 The SVRG relies on Iteration (2.1), in which the point $x_s$ is updated every epoch based on the updates $\{\Tilde{x}_1,...,\Tilde{x}_m\}$. The point $x_s$ can be updated using one of the three options : 
 \begin{enumerate}
-    \item Option I : we choose the last update $x_s=\Tilde{x}_k\}$
+    \item Option I : we choose the last update $x_s=\Tilde{x}_k$
     \item Option II : we randomly sample $t\in\{1,...,m\}$, and set $x_s=\Tilde{x}_t\}$
     \item Option III: we choose an average of the updates : $x_s=\frac{1}{m}\sum\limits_{i=1}^m \Tilde{x}_t$ 
 \end{enumerate}
 Algorithm \ref{SVRG} describe the pseudo-code of the SVRG with different options. One may be confused whether an option should be fixed or can be changed at each epoch. As this wasn't specified in articles we came across so far, we claim that a mixing of options I and II is possible and this strategy yields the same convergence result as if we fix one of the two. 
 
-\begin{algorithm}[H]\label{SVRG}
+\begin{algorithm}[H]\label{SRG}
     \SetKwInOut{Input}{Input}
     \SetKwInOut{Output}{Output}
     \Input{ $\eta>0$, $x_0\in\mathbb{R}^d$, update frequency $m\geq 1$}
@@ -375,11 +375,25 @@ $$\|{X}_{t-1}-x^* \|^2-2\eta\E[(\Tilde{X}_{t-1})^\top v_t|\Tilde{X}_{t-1},X]+\et
 
 $$\leq \|{X}_{t-1}-x^* \|^2-2\eta(\Tilde{X}_{t-1})^\top\nabla f(\Tilde{X}_{t-1}+2\eta^2\beta(\Tilde{X}_{t-1}-x^*)^\top\nabla f(\Tilde{X}_{t-1})+2\eta^2\beta^2\|X-x^* \|^2$$
 
-$$=\|{X}_{t-1}-x^*\|^2-2\eta\alpha(1-\eta\beta)$$
+$$=\|{X}_{t-1}-x^*\|^2-2\eta\alpha(1-\eta\beta)\|{X}_{t-1}-x^*\|^2+2\eta^2\beta^2\|{X}-x^*\|^2$$
+$$=(1-2\eta\alpha(1-\eta\beta))\|\Tilde{X}_{t-1}-x^* \|^2 +2\eta^2\beta^2\|X-x^* \|^2  $$
+Now taking the expectation in both sides, we get
+$$\E[ \|\Tilde{X}_t-x^*\|^2]\leq (1-2\eta\alpha(1-\eta\beta))\E[ \|\Tilde{X}_{t-1}-x^*\|^2]+ 2\eta^2\beta^2\E[\|X-x^* \|^2] $$
+
+Applying the inequality recursively for $t=1$ to $t=m$, we get
+$$\E[ \|\Tilde{X}_m-x^*\|^2]\leq (1-2\eta\alpha(1-\eta\beta))^m\E[ \|\Tilde{X}_{0}-x^*\|^2]+ 2\eta^2\beta^2\E[\|X-x^* \|^2]\sum\limits_{l=0}^{m-1}(1-2\eta\alpha(1-\eta\beta))^l  $$
+
+Since $\Tilde{X}_0=X_{t-1}$ and by option III  $\Tilde{X}_m=X_{t}$, 
+we get
+$$\E[ \|X_{t}-x^*\|^2]\leq \left(1-2\eta\alpha(1-\eta\beta))^m+\frac{\eta\beta^2}{\alpha(1-\eta\beta)}\right)\E[ \|\Tilde{X}_{t-1}-x^*\|^2]  $$
 
 
+By the trick
 
 
+$$\E[ \|f(X_{t})-f(x^*)\|^2]\leq \underbrace{\kappa\left(1-2\eta\alpha(1-\eta\beta))^m+\frac{\eta\beta^2}{\alpha(1-\eta\beta)}\right)}_{\lambda}\E[ \|f(\Tilde{X}_{t-1})-f(x^*)\|^2]  $$
+
+$$\E[f(X_{s})]-f(x^*)\leq \lambda^s(f(x_{0})-f(x^*))$$
 
 
 \section{Oracle complexity}
@@ -610,6 +624,8 @@ Brainstorming
     \item Is it a good idea to suggest my own tweak of some of the previous algorithms and do experimental work? theoretical investigation might be challenging in the available time
     \item is the mathematical content so far enough
 \end{itemize}
+
+
 
 \bibliography{reference}{}
 \bibliographystyle{abbrv}
